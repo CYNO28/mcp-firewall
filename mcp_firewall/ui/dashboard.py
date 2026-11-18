@@ -1,0 +1,133 @@
+"""Real-time monitoring dashboard and audit log viewer."""
+
+import json
+import time
+import tkinter as tk
+from tkinter import ttk
+from typing import List, Optional
+
+from mcp_firewall.models import MCPRequest, RequestStatus
+from mcp_firewall.ui.theme import THEME
+
+
+class MonitoringDashboard:
+    """Dashboard window showing metrics, active interceptors, and audit history."""
+
+    def __init__(self, root: Optional[tk.Tk] = None):
+        self.root = root or tk.Tk()
+        self.history: List[MCPRequest] = []
+        self._setup_window()
+        self._build_ui()
+
+    def _setup_window(self):
+        self.root.title("MCP Firewall - Activity & Security Monitor")
+        self.root.geometry("820x600")
+        self.root.minsize(700, 500)
+        self.root.configure(bg=THEME["bg_main"])
+
+    def _build_ui(self):
+        # Header
+        header = tk.Frame(self.root, bg=THEME["bg_card"], padx=20, pady=16)
+        header.pack(fill=tk.X)
+
+        tk.Label(
+            header,
+            text="🛡️  MCP Firewall Dashboard",
+            font=(THEME["font_family"], 16, "bold"),
+            fg=THEME["text_primary"],
+            bg=THEME["bg_card"],
+        ).pack(side=tk.LEFT)
+
+        self.status_indicator = tk.Label(
+            header,
+            text="● SERVICE ACTIVE",
+            font=(THEME["font_family"], 10, "bold"),
+            fg=THEME["allow_btn"],
+            bg=THEME["bg_card"],
+        )
+        self.status_indicator.pack(side=tk.RIGHT)
+
+        # Metrics cards frame
+        metrics_frame = tk.Frame(self.root, bg=THEME["bg_main"], padx=20, pady=14)
+        metrics_frame.pack(fill=tk.X)
+
+        self.card_total = self._create_metric_card(metrics_frame, "TOTAL REQUESTS", "0", THEME["text_primary"])
+        self.card_allowed = self._create_metric_card(metrics_frame, "ALLOWED", "0", THEME["allow_btn"])
+        self.card_blocked = self._create_metric_card(metrics_frame, "BLOCKED", "0", THEME["block_btn"])
+
+        # History table section
+        table_frame = tk.Frame(self.root, bg=THEME["bg_main"], padx=20, pady=10)
+        table_frame.pack(fill=tk.BOTH, expand=True)
+
+        tk.Label(
+            table_frame,
+            text="Intercepted Requests History",
+            font=(THEME["font_family"], 12, "bold"),
+            fg=THEME["text_primary"],
+            bg=THEME["bg_main"],
+        ).pack(anchor=tk.W, pady=(0, 8))
+
+        columns = ("time", "client", "server", "tool", "status", "params")
+        self.tree = ttk.Treeview(table_frame, columns=columns, show="headings", height=12)
+
+        self.tree.heading("time", text="Timestamp")
+        self.tree.heading("client", text="Client")
+        self.tree.heading("server", text="Server")
+        self.tree.heading("tool", text="Tool")
+        self.tree.heading("status", text="Decision")
+        self.tree.heading("params", text="Arguments Summary")
+
+        self.tree.column("time", width=80, anchor=tk.CENTER)
+        self.tree.column("client", width=140, anchor=tk.W)
+        self.tree.column("server", width=100, anchor=tk.W)
+        self.tree.column("tool", width=140, anchor=tk.W)
+        self.tree.column("status", width=90, anchor=tk.CENTER)
+        self.tree.column("params", width=220, anchor=tk.W)
+
+        tree_scroll = ttk.Scrollbar(table_frame, orient=tk.VERTICAL, command=self.tree.yview)
+        self.tree.configure(yscrollcommand=tree_scroll.set)
+        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        tree_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+
+    def _create_metric_card(self, parent, title: str, initial_value: str, value_color: str):
+        card = tk.Frame(parent, bg=THEME["bg_card"], padx=16, pady=12, relief=tk.FLAT)
+        card.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=6)
+
+        tk.Label(
+            card,
+            text=title,
+            font=(THEME["font_family"], 9, "bold"),
+            fg=THEME["text_muted"],
+            bg=THEME["bg_card"],
+        ).pack(anchor=tk.W)
+
+        val_label = tk.Label(
+            card,
+            text=initial_value,
+            font=(THEME["font_family"], 20, "bold"),
+            fg=value_color,
+            bg=THEME["bg_card"],
+        )
+        val_label.pack(anchor=tk.W, pady=(4, 0))
+        return val_label
+
+    def update_metrics(self, total: int, allowed: int, blocked: int):
+        self.card_total.config(text=str(total))
+        self.card_allowed.config(text=str(allowed))
+        self.card_blocked.config(text=str(blocked))
+
+    def record_request(self, request: MCPRequest):
+        self.history.append(request)
+        timestr = time.strftime("%H:%M:%S", time.localtime(request.timestamp))
+        status = request.status.value if hasattr(request.status, "value") else str(request.status)
+        client = request.client_type.value if hasattr(request.client_type, "value") else str(request.client_type)
+        summary = json.dumps(request.arguments)
+        if len(summary) > 60:
+            summary = summary[:57] + "..."
+
+        self.tree.insert("", 0, values=(timestr, client, request.server_name, request.tool_name, status, summary))
+
+        total = len(self.history)
+        allowed = sum(1 for r in self.history if r.status == RequestStatus.ALLOWED)
+        blocked = sum(1 for r in self.history if r.status in (RequestStatus.BLOCKED, RequestStatus.TIMEOUT))
+        self.update_metrics(total, allowed, blocked)
