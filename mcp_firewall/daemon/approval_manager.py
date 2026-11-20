@@ -54,6 +54,28 @@ class ApprovalManager:
             pass
 
     def submit_request(self, request: MCPRequest, timeout: float = 60.0) -> ApprovalDecision:
+        with self._lock:
+            for past_req in reversed(self._history[-10:]):
+                if (
+                    past_req.server_name == request.server_name
+                    and past_req.tool_name == request.tool_name
+                    and past_req.arguments == request.arguments
+                    and past_req.status in (RequestStatus.BLOCKED, RequestStatus.TIMEOUT)
+                    and (request.timestamp - past_req.timestamp) < 10.0
+                ):
+                    decision = ApprovalDecision(
+                        request_id=request.request_id,
+                        status=RequestStatus.BLOCKED,
+                        reason="Auto-blocked by recent rejection policy.",
+                    )
+                    request.status = RequestStatus.BLOCKED
+                    request.decision_reason = decision.reason
+                    self._history.append(request)
+                    if self.on_decision_rendered:
+                        self.on_decision_rendered(decision)
+                    self._append_audit_log(request)
+                    return decision
+
         item = PendingItem(request)
 
         with self._lock:

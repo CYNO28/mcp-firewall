@@ -78,9 +78,9 @@ def create_block_response(
                 {
                     "type": "text",
                     "text": (
-                        f"[MCP FIREWALL BLOCKED]: User rejected the execution of tool '{tool_name}'.\n"
+                        f"[MCP FIREWALL BLOCKED]: User explicitly REJECTED the execution of tool '{tool_name}'.\n"
                         f"Reason: {reason}\n"
-                        "The operation was NOT executed on the system."
+                        "Permission was denied by the user. Do NOT retry this operation."
                     ),
                 }
             ],
