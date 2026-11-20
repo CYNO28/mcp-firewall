@@ -130,6 +130,24 @@ def run_claude_status_command(args):
     print("-" * 65 + "\n")
 
 
+def run_status_command(args):
+    """Check overall MCP Firewall daemon and Claude configuration status."""
+    from mcp_firewall.daemon.ipc_client import IPCClient
+    client = IPCClient()
+    daemon_running = client.is_daemon_running()
+
+    print("\n" + "=" * 60)
+    print("  🛡️  MCP Firewall — System Status")
+    print("=" * 60)
+    if daemon_running:
+        print("  Daemon Status:  ● ONLINE (Listening on 127.0.0.1:9876)")
+    else:
+        print("  Daemon Status:  ○ OFFLINE (Start using 'python start.py')")
+    print("=" * 60)
+
+    run_claude_status_command(args)
+
+
 def run_claude_protect_command(args):
     """Wrap configured servers with MCP Firewall in claude_desktop_config.json."""
     mgr = ClaudeConfigManager()
@@ -170,6 +188,16 @@ def main():
         description="MCP Firewall - Real-time authorization & monitoring for Claude Desktop and Claude Web MCP requests",
     )
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
+
+    # Command: start
+    start_parser = subparsers.add_parser("start", help="Start the MCP Firewall daemon and dashboard")
+    start_parser.add_argument("--host", default=DEFAULT_IPC_HOST, help="IPC bind host")
+    start_parser.add_argument("--port", type=int, default=DEFAULT_IPC_PORT, help="IPC bind port")
+    start_parser.add_argument("--timeout", type=int, default=DEFAULT_REQUEST_TIMEOUT, help="Confirmation timeout (seconds)")
+    start_parser.set_defaults(dashboard=True)
+
+    # Command: status
+    subparsers.add_parser("status", help="Check status of MCP Firewall daemon and Claude configuration")
 
     # Command: daemon
     daemon_parser = subparsers.add_parser("daemon", help="Run the central authorization daemon & confirmation UI")
@@ -215,8 +243,10 @@ def main():
 
     args = parser.parse_args()
 
-    if args.command == "daemon":
+    if args.command in ("start", "daemon"):
         run_daemon_command(args)
+    elif args.command in ("status", "claude-status"):
+        run_status_command(args)
     elif args.command == "wrap":
         # If no '--' was given
         print("Usage: mcp-firewall wrap --server-name <NAME> -- <command> [args...]")

@@ -33,18 +33,32 @@ A real-time monitoring, protocol interception, and user authorization firewall f
 
 ## 🖥️ How to Start and Run the App
 
-### 1. Start the Central Authorization Daemon
+### Quick Start (Easiest)
 
-The daemon coordinates approvals and displays the always-on-top confirmation modal:
+To start the central authorization daemon and the **Live Activity Dashboard**:
 
 ```bash
-mcp-firewall daemon
+python start.py
 ```
 
-To start the daemon along with the **Live Activity & Security Dashboard**:
+To check the firewall daemon and Claude Desktop configuration status:
 
 ```bash
-mcp-firewall daemon --dashboard
+python start.py status
+```
+
+---
+
+### Alternative: CLI Commands
+
+You can also run commands directly via the CLI:
+
+```bash
+# Start the daemon and dashboard
+mcp-firewall start
+
+# Check overall status
+mcp-firewall status
 ```
 
 ---
