@@ -1,5 +1,3 @@
-"""Real-time monitoring dashboard and audit log viewer."""
-
 import json
 import time
 import tkinter as tk
@@ -11,8 +9,6 @@ from mcp_firewall.ui.theme import THEME
 
 
 class MonitoringDashboard:
-    """Dashboard window showing metrics, active interceptors, and audit history."""
-
     def __init__(self, root: Optional[tk.Tk] = None):
         self.root = root or tk.Tk()
         self.history: List[MCPRequest] = []
@@ -22,12 +18,11 @@ class MonitoringDashboard:
 
     def _setup_window(self):
         self.root.title("MCP Firewall - Activity & Security Monitor")
-        self.root.geometry("820x600")
-        self.root.minsize(700, 500)
+        self.root.geometry("860x600")
+        self.root.minsize(720, 500)
         self.root.configure(bg=THEME["bg_main"])
 
     def _build_ui(self):
-        # Header
         header = tk.Frame(self.root, bg=THEME["bg_card"], padx=20, pady=16)
         header.pack(fill=tk.X)
 
@@ -48,7 +43,22 @@ class MonitoringDashboard:
         )
         self.status_indicator.pack(side=tk.RIGHT)
 
-        # Metrics cards frame
+        clear_btn = tk.Button(
+            header,
+            text="Clear Table",
+            font=(THEME["font_family"], 9, "bold"),
+            bg=THEME["bg_input"],
+            fg=THEME["text_muted"],
+            activebackground=THEME["bg_card"],
+            activeforeground="#ffffff",
+            relief=tk.FLAT,
+            padx=10,
+            pady=2,
+            cursor="hand2",
+            command=self.clear_table,
+        )
+        clear_btn.pack(side=tk.RIGHT, padx=12)
+
         metrics_frame = tk.Frame(self.root, bg=THEME["bg_main"], padx=20, pady=14)
         metrics_frame.pack(fill=tk.X)
 
@@ -56,7 +66,6 @@ class MonitoringDashboard:
         self.card_allowed = self._create_metric_card(metrics_frame, "ALLOWED", "0", THEME["allow_btn"])
         self.card_blocked = self._create_metric_card(metrics_frame, "BLOCKED", "0", THEME["block_btn"])
 
-        # History table section
         table_frame = tk.Frame(self.root, bg=THEME["bg_main"], padx=20, pady=10)
         table_frame.pack(fill=tk.BOTH, expand=True)
 
@@ -83,7 +92,12 @@ class MonitoringDashboard:
         self.tree.column("server", width=100, anchor=tk.W)
         self.tree.column("tool", width=140, anchor=tk.W)
         self.tree.column("status", width=90, anchor=tk.CENTER)
-        self.tree.column("params", width=220, anchor=tk.W)
+        self.tree.column("params", width=260, anchor=tk.W)
+
+        self.tree.tag_configure("PENDING", foreground="#f59e0b")
+        self.tree.tag_configure("ALLOWED", foreground="#10b981")
+        self.tree.tag_configure("BLOCKED", foreground="#ef4444")
+        self.tree.tag_configure("TIMEOUT", foreground="#ef4444")
 
         tree_scroll = ttk.Scrollbar(table_frame, orient=tk.VERTICAL, command=self.tree.yview)
         self.tree.configure(yscrollcommand=tree_scroll.set)
@@ -117,6 +131,19 @@ class MonitoringDashboard:
         self.card_allowed.config(text=str(allowed))
         self.card_blocked.config(text=str(blocked))
 
+    def clear_table(self):
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        self.history.clear()
+        self._item_map.clear()
+        self.update_metrics(0, 0, 0)
+        from mcp_firewall.config import AUDIT_LOG_FILE
+        if AUDIT_LOG_FILE.exists():
+            try:
+                AUDIT_LOG_FILE.unlink()
+            except Exception:
+                pass
+
     def record_request(self, request: MCPRequest):
         if request.request_id in self._item_map:
             return
@@ -128,13 +155,22 @@ class MonitoringDashboard:
         if len(summary) > 60:
             summary = summary[:57] + "..."
 
-        item_id = self.tree.insert("", 0, values=(timestr, client, request.server_name, request.tool_name, status, summary))
+        item_id = self.tree.insert(
+            "",
+            0,
+            values=(timestr, client, request.server_name, request.tool_name, status, summary),
+            tags=(status,),
+        )
         self._item_map[request.request_id] = item_id
 
         total = len(self.history)
         allowed = sum(1 for r in self.history if r.status == RequestStatus.ALLOWED)
         blocked = sum(1 for r in self.history if r.status in (RequestStatus.BLOCKED, RequestStatus.TIMEOUT))
         self.update_metrics(total, allowed, blocked)
+        try:
+            self.root.update_idletasks()
+        except Exception:
+            pass
 
     def update_decision(self, request_id: str, status: RequestStatus):
         for r in self.history:
@@ -148,9 +184,13 @@ class MonitoringDashboard:
             if len(current_vals) >= 6:
                 status_str = status.value if hasattr(status, "value") else str(status)
                 current_vals[4] = status_str
-                self.tree.item(item_id, values=current_vals)
+                self.tree.item(item_id, values=current_vals, tags=(status_str,))
 
         total = len(self.history)
         allowed = sum(1 for r in self.history if r.status == RequestStatus.ALLOWED)
         blocked = sum(1 for r in self.history if r.status in (RequestStatus.BLOCKED, RequestStatus.TIMEOUT))
         self.update_metrics(total, allowed, blocked)
+        try:
+            self.root.update_idletasks()
+        except Exception:
+            pass
