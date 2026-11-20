@@ -118,6 +118,8 @@ class MonitoringDashboard:
         self.card_blocked.config(text=str(blocked))
 
     def record_request(self, request: MCPRequest):
+        if request.request_id in self._item_map:
+            return
         self.history.append(request)
         timestr = time.strftime("%H:%M:%S", time.localtime(request.timestamp))
         status = request.status.value if hasattr(request.status, "value") else str(request.status)

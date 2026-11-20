@@ -43,6 +43,8 @@ def run_daemon_command(args):
     if getattr(args, "dashboard", False):
         dash_window = tk.Toplevel(root)
         dashboard = MonitoringDashboard(root=dash_window)
+        for past_req in manager.get_history():
+            dashboard.record_request(past_req)
 
     def on_queued(request: MCPRequest):
         # Schedule UI update in Tkinter main thread
