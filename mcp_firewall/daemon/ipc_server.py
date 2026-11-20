@@ -1,5 +1,3 @@
-"""Threaded TCP IPC Server for MCP Firewall."""
-
 import json
 import logging
 import socket
@@ -14,8 +12,6 @@ logger = logging.getLogger("mcp_firewall.ipc_server")
 
 
 class IPCServer:
-    """Socket-based IPC server to communicate between interceptors and the daemon."""
-
     def __init__(
         self,
         approval_manager: ApprovalManager,
@@ -30,7 +26,6 @@ class IPCServer:
         self._thread: Optional[threading.Thread] = None
 
     def start(self):
-        """Bind and start listening in background thread."""
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.bind((self.host, self.port))
@@ -84,7 +79,6 @@ class IPCServer:
                 timeout = float(payload.get("timeout", 60.0))
                 req = MCPRequest.from_dict(req_data)
 
-                # Blocks until user decision or timeout
                 decision = self.approval_manager.submit_request(req, timeout=timeout)
                 resp = {"status": "DECISION", "decision": decision.to_dict()}
                 client_sock.sendall((json.dumps(resp) + "\n").encode("utf-8"))
@@ -99,7 +93,7 @@ class IPCServer:
                 client_sock.sendall((json.dumps(resp) + "\n").encode("utf-8"))
 
         except Exception as e:
-            logger.error(f"Error handling IPC client {addr}: {e}")
+            logger.debug(f"IPC connection handling exception: {e}")
         finally:
             try:
                 client_sock.close()

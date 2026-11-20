@@ -1,5 +1,3 @@
-"""Stdio Interceptor Wrapper for Claude Desktop MCP servers."""
-
 import logging
 import subprocess
 import sys
@@ -21,11 +19,6 @@ logger = logging.getLogger("mcp_firewall.stdio_wrapper")
 
 
 class StdioInterceptor:
-    """
-    Transparent bidirectional proxy wrapping an MCP server's stdio streams.
-    Intercepts tools/call messages from Claude Desktop and requires user confirmation.
-    """
-
     def __init__(
         self,
         server_name: str,
@@ -40,7 +33,6 @@ class StdioInterceptor:
         self._running = True
 
     def start(self):
-        """Start the target MCP server and run the interception loops."""
         try:
             self.target_proc = subprocess.Popen(
                 self.target_command,
@@ -48,7 +40,7 @@ class StdioInterceptor:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                bufsize=1,  # Line-buffered
+                bufsize=1,
                 encoding="utf-8",
                 errors="replace",
             )
@@ -57,7 +49,6 @@ class StdioInterceptor:
             sys.stderr.flush()
             sys.exit(1)
 
-        # Thread to read target stdout and forward to sys.stdout
         stdout_thread = threading.Thread(
             target=self._forward_target_stdout,
             daemon=True,
@@ -65,7 +56,6 @@ class StdioInterceptor:
         )
         stdout_thread.start()
 
-        # Thread to forward target stderr to sys.stderr
         stderr_thread = threading.Thread(
             target=self._forward_target_stderr,
             daemon=True,
@@ -73,11 +63,9 @@ class StdioInterceptor:
         )
         stderr_thread.start()
 
-        # Main thread reads sys.stdin (from Claude Desktop) and intercepts
         self._read_client_stdin()
 
     def _read_client_stdin(self):
-        """Read requests from Claude Desktop on sys.stdin."""
         try:
             for line in sys.stdin:
                 if not line:
@@ -85,10 +73,8 @@ class StdioInterceptor:
 
                 message = parse_jsonrpc(line)
                 if message and is_tool_call(message):
-                    # Intercept this tool call!
                     self._handle_tool_call(message, raw_line=line)
                 else:
-                    # Pass-through all other protocol messages directly
                     self._send_to_target(line)
 
         except (KeyboardInterrupt, BrokenPipeError):
@@ -97,7 +83,6 @@ class StdioInterceptor:
             self._cleanup()
 
     def _handle_tool_call(self, message: dict, raw_line: str):
-        """Evaluate and authorize a tools/call request."""
         tool_name, arguments, raw_id = extract_tool_call_details(message)
 
         req = MCPRequest(
@@ -111,11 +96,8 @@ class StdioInterceptor:
         decision = self.client.request_approval(req, timeout=float(self.timeout))
 
         if decision.status == RequestStatus.ALLOWED:
-            # Release and forward to actual MCP server
             self._send_to_target(raw_line)
         else:
-            # Block! Do NOT send to target server.
-            # Synthesize an MCP error result so Claude knows it was rejected.
             block_resp = create_block_response(
                 raw_id=raw_id,
                 tool_name=tool_name,
@@ -124,7 +106,6 @@ class StdioInterceptor:
             self._send_to_client(serialize_jsonrpc(block_resp))
 
     def _send_to_target(self, text: str):
-        """Send message to target MCP server's stdin."""
         if self.target_proc and self.target_proc.stdin:
             try:
                 self.target_proc.stdin.write(text)
@@ -133,7 +114,6 @@ class StdioInterceptor:
                 logger.error(f"Error writing to target stdin: {e}")
 
     def _send_to_client(self, text: str):
-        """Send message back to Claude Desktop's stdout."""
         try:
             sys.stdout.write(text)
             sys.stdout.flush()
@@ -141,7 +121,6 @@ class StdioInterceptor:
             logger.error(f"Error writing to client stdout: {e}")
 
     def _forward_target_stdout(self):
-        """Forward all output from MCP server to Claude Desktop."""
         try:
             for line in self.target_proc.stdout:
                 if not line:
@@ -151,7 +130,6 @@ class StdioInterceptor:
             pass
 
     def _forward_target_stderr(self):
-        """Forward MCP server stderr logs to Claude Desktop stderr."""
         try:
             for line in self.target_proc.stderr:
                 if not line:
@@ -162,7 +140,6 @@ class StdioInterceptor:
             pass
 
     def _cleanup(self):
-        """Terminate target server on exit."""
         self._running = False
         if self.target_proc:
             try:

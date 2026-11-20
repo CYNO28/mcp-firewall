@@ -1,8 +1,5 @@
-"""Coordinator managing pending requests, threads, and decision resolution."""
-
 import json
 import threading
-import time
 from typing import Callable, Dict, List, Optional
 
 from mcp_firewall.config import AUDIT_LOG_FILE
@@ -17,8 +14,6 @@ class PendingItem:
 
 
 class ApprovalManager:
-    """Thread-safe manager for coordinating approvals between interceptors and UI."""
-
     def __init__(
         self,
         on_request_queued: Optional[Callable[[MCPRequest], None]] = None,
@@ -38,12 +33,11 @@ class ApprovalManager:
         self.on_decision_rendered = callback
 
     def _load_recent_history(self):
-        """Read recent history from audit log if available."""
         if not AUDIT_LOG_FILE.exists():
             return
         try:
             with open(AUDIT_LOG_FILE, "r", encoding="utf-8") as f:
-                lines = f.readlines()[-100:]  # Last 100 entries
+                lines = f.readlines()[-100:]
                 for line in lines:
                     line = line.strip()
                     if line:
@@ -53,7 +47,6 @@ class ApprovalManager:
             pass
 
     def _append_audit_log(self, request: MCPRequest):
-        """Persist request to audit log."""
         try:
             with open(AUDIT_LOG_FILE, "a", encoding="utf-8") as f:
                 f.write(json.dumps(request.to_dict()) + "\n")
@@ -61,20 +54,14 @@ class ApprovalManager:
             pass
 
     def submit_request(self, request: MCPRequest, timeout: float = 60.0) -> ApprovalDecision:
-        """
-        Submit a request to the user queue and block until decision is rendered or timeout.
-        Thread-safe: can be called by multiple interceptor threads simultaneously.
-        """
         item = PendingItem(request)
 
         with self._lock:
             self._pending[request.request_id] = item
 
-        # Notify UI thread
         if self.on_request_queued:
             self.on_request_queued(request)
 
-        # Wait for user decision or timeout
         wait_time = timeout if timeout > 0 else None
         signaled = item.event.wait(timeout=wait_time)
 
@@ -82,7 +69,6 @@ class ApprovalManager:
             self._pending.pop(request.request_id, None)
 
         if not signaled or not item.decision:
-            # Timeout elapsed
             decision = ApprovalDecision(
                 request_id=request.request_id,
                 status=RequestStatus.TIMEOUT,
@@ -104,7 +90,6 @@ class ApprovalManager:
         return decision
 
     def resolve_decision(self, decision: ApprovalDecision):
-        """Called by UI when user clicks Allow/Block or closes window."""
         with self._lock:
             item = self._pending.get(decision.request_id)
             if item:
@@ -118,8 +103,12 @@ class ApprovalManager:
             total = len(self._history)
             allowed = sum(1 for r in self._history if r.status == RequestStatus.ALLOWED)
             blocked = sum(1 for r in self._history if r.status in (RequestStatus.BLOCKED, RequestStatus.TIMEOUT))
-            pending = len(self._pending)
-            return {"total": total, "allowed": allowed, "blocked": blocked, "pending": pending}
+            return {
+                "total": total,
+                "allowed": allowed,
+                "blocked": blocked,
+                "pending": len(self._pending),
+            }
 
     def get_history(self) -> List[MCPRequest]:
         with self._lock:

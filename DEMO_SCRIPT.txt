@@ -1,0 +1,70 @@
+================================================================================
+          MCP FIREWALL — QUICK DEMO SCRIPT (CREATE, LIST, DELETE)
+================================================================================
+
+[SCREEN SETUP]
+- Left side: Terminal with Claude.
+- Right side: Empty space for Firewall Modal & Dashboard.
+- Background: IDE showing stdio_wrapper.py.
+
+================================================================================
+1. INTRO & START (0:00 - 0:15)
+================================================================================
+"Hi, this is my submission for the MCP Firewall assignment. It intercepts Claude's 
+MCP tool calls in real time and requires explicit human approval before execution.
+
+I'll start the firewall with .\run, which launches the daemon and live dashboard."
+
+[Action: Run '.\run' in terminal -> Dashboard appears on right]
+
+================================================================================
+2. STEP 1: CREATE A FILE (0:15 - 0:35)
+================================================================================
+[Action: In Claude, run:]
+Use the MCP tool create_file from secure-tools with path "demo.txt" and content "Hello world"
+
+[Action: Modal appears on screen]
+"Claude calls create_file. The firewall pauses execution, displays the parameters, 
+and shows as PENDING on our dashboard. I'll click Allow."
+
+[Action: Click Allow]
+"The file is created, and the dashboard marks it ALLOWED."
+
+================================================================================
+3. STEP 2: LIST DIRECTORY (0:35 - 0:50)
+================================================================================
+[Action: In Claude, run:]
+Use the MCP tool list_directory from secure-tools with path "."
+
+[Action: Modal appears on screen]
+"Next, Claude calls list_directory to see the files. The firewall catches it again. 
+I'll click Allow."
+
+[Action: Click Allow]
+"Claude displays the directory contents including our new demo.txt file."
+
+================================================================================
+4. STEP 3: DELETE FILE (BLOCKING A SENSITIVE CALL) (0:50 - 1:10)
+================================================================================
+[Action: In Claude, run:]
+Use the MCP tool delete_file from secure-tools with path "demo.txt"
+
+[Action: Modal appears on screen]
+"Now Claude attempts to delete the file. Since this is a destructive action, 
+I'll click Block."
+
+[Action: Click Block]
+"The call is blocked, Claude receives a permission-denied error, the file remains 
+safe, and the dashboard records the event as red: BLOCKED."
+
+================================================================================
+5. CODE PEEK & OUTRO (1:10 - 1:25)
+================================================================================
+[Action: Switch to IDE showing stdio_wrapper.py]
+
+"Under the hood, stdio_wrapper.py intercepts standard I/O and extracts JSON-RPC 
+tools/call requests, while approval_manager.py holds execution with a fail-closed 
+timeout.
+
+The code and architecture documentation are available on GitHub. Thank you!"
+================================================================================
