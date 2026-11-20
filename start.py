@@ -19,4 +19,6 @@ if __name__ == "__main__":
         sys.argv.append("start")
     elif sys.argv[1] in ("status", "--status", "-s"):
         sys.argv[1] = "status"
+    elif sys.argv[1] in ("clean", "clear"):
+        sys.argv[1] = "clean"
     main()

@@ -110,6 +110,19 @@ def run_proxy_command(args):
         logger.info("HTTP Proxy stopped.")
 
 
+def run_clean_command(args):
+    """Clear the persistent audit log file."""
+    from mcp_firewall.config import AUDIT_LOG_FILE
+    if AUDIT_LOG_FILE.exists():
+        try:
+            AUDIT_LOG_FILE.unlink()
+            print(f"[OK] Audit log cleared: {AUDIT_LOG_FILE}")
+        except Exception as e:
+            print(f"[ERROR] Could not delete audit log: {e}")
+    else:
+        print("[INFO] Audit log is already empty.")
+
+
 def run_claude_status_command(args):
     """Check Claude Desktop configuration status."""
     mgr = ClaudeConfigManager()
@@ -233,6 +246,10 @@ def main():
     unprot_parser = subparsers.add_parser("claude-unprotect", help="Restore Claude Desktop MCP servers to original commands")
     unprot_parser.add_argument("--server", help="Specific server name to restore (omitting restores all)")
 
+    # Command: clean / clear
+    subparsers.add_parser("clean", help="Clear persistent audit logs")
+    subparsers.add_parser("clear", help="Clear persistent audit logs")
+
     # Parse args, splitting for 'wrap' target command
     if "wrap" in sys.argv:
         wrap_idx = sys.argv.index("wrap")
@@ -249,6 +266,8 @@ def main():
         run_daemon_command(args)
     elif args.command in ("status", "claude-status"):
         run_status_command(args)
+    elif args.command in ("clean", "clear"):
+        run_clean_command(args)
     elif args.command == "wrap":
         # If no '--' was given
         print("Usage: mcp-firewall wrap --server-name <NAME> -- <command> [args...]")
