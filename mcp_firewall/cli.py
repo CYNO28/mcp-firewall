@@ -2,10 +2,7 @@
 
 import argparse
 import logging
-import os
 import sys
-import threading
-import time
 import tkinter as tk
 from typing import List
 
@@ -21,7 +18,7 @@ from mcp_firewall.daemon.approval_manager import ApprovalManager
 from mcp_firewall.daemon.ipc_server import IPCServer
 from mcp_firewall.interceptors.stdio_wrapper import StdioInterceptor
 from mcp_firewall.interceptors.http_proxy import HTTPProxyServer
-from mcp_firewall.models import MCPRequest
+from mcp_firewall.models import MCPRequest, ApprovalDecision
 from mcp_firewall.ui.popup import ConfirmationModal
 from mcp_firewall.ui.dashboard import MonitoringDashboard
 
@@ -53,7 +50,12 @@ def run_daemon_command(args):
         if dashboard:
             root.after(0, lambda: dashboard.record_request(request))
 
+    def on_decision(decision: ApprovalDecision):
+        if dashboard:
+            root.after(0, lambda: dashboard.update_decision(decision.request_id, decision.status))
+
     manager.set_queue_callback(on_queued)
+    manager.set_decision_callback(on_decision)
 
     # Start IPC Server
     ipc_server = IPCServer(
@@ -162,12 +164,6 @@ def run_claude_unprotect_command(args):
         print(f"[OK] Restored {restored} of {total} servers to original settings.")
 
 
-def run_demo_command(args):
-    """Run the interactive test & demo suite."""
-    from demo.run_demo import run_all_demos
-    run_all_demos(interactive=not args.auto)
-
-
 def main():
     parser = argparse.ArgumentParser(
         prog="mcp-firewall",
@@ -207,10 +203,6 @@ def main():
     unprot_parser = subparsers.add_parser("claude-unprotect", help="Restore Claude Desktop MCP servers to original commands")
     unprot_parser.add_argument("--server", help="Specific server name to restore (omitting restores all)")
 
-    # Command: demo
-    demo_parser = subparsers.add_parser("demo", help="Run interactive demonstration of MCP Firewall")
-    demo_parser.add_argument("--auto", action="store_true", help="Run automated test without prompting")
-
     # Parse args, splitting for 'wrap' target command
     if "wrap" in sys.argv:
         wrap_idx = sys.argv.index("wrap")
@@ -236,8 +228,6 @@ def main():
         run_claude_protect_command(args)
     elif args.command == "claude-unprotect":
         run_claude_unprotect_command(args)
-    elif args.command == "demo":
-        run_demo_command(args)
     else:
         parser.print_help()
 

@@ -46,8 +46,8 @@ class ConfirmationModal:
 
     def _setup_window(self):
         self.root.title("MCP Firewall - Authorization Required")
-        self.root.geometry("620x540")
-        self.root.minsize(540, 480)
+        self.root.geometry("560x420")
+        self.root.minsize(460, 360)
         self.root.configure(bg=THEME["bg_main"])
 
         # Always-on-top behavior
@@ -165,29 +165,47 @@ class ConfirmationModal:
         )
         self.time_label.pack(side=tk.RIGHT)
 
-        # Text area for formatted JSON parameters
-        text_frame = tk.Frame(self.root, bg=THEME["border"], padx=1, pady=1)
-        text_frame.pack(fill=tk.BOTH, expand=True, padx=14, pady=4)
+        # Action Buttons bar (Pack at bottom FIRST so it is always visible)
+        self.actions_frame = tk.Frame(self.root, bg=THEME["bg_card"], padx=16, pady=12)
+        self.actions_frame.pack(fill=tk.X, side=tk.BOTTOM)
 
-        self.param_text = tk.Text(
-            text_frame,
-            font=(THEME["font_mono"], 10),
-            bg=THEME["bg_input"],
-            fg=THEME["text_primary"],
-            insertbackground=THEME["text_primary"],
+        # Block Button
+        self.block_btn = tk.Button(
+            self.actions_frame,
+            text="✕  BLOCK REQUEST",
+            font=(THEME["font_family"], 11, "bold"),
+            bg=THEME["block_btn"],
+            fg="#ffffff",
+            activebackground=THEME["block_btn_hover"],
+            activeforeground="#ffffff",
             relief=tk.FLAT,
-            padx=10,
+            padx=20,
             pady=8,
-            wrap=tk.WORD,
+            cursor="hand2",
+            command=self._block_current,
         )
-        scrollbar = tk.Scrollbar(text_frame, command=self.param_text.yview)
-        self.param_text.configure(yscrollcommand=scrollbar.set)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        self.param_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.block_btn.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(0, 8))
 
-        # Queue Navigation (if multiple concurrent requests)
-        self.nav_frame = tk.Frame(self.root, bg=THEME["bg_main"], padx=14, pady=2)
-        self.nav_frame.pack(fill=tk.X)
+        # Allow Button
+        self.allow_btn = tk.Button(
+            self.actions_frame,
+            text="✓  ALLOW REQUEST",
+            font=(THEME["font_family"], 11, "bold"),
+            bg=THEME["allow_btn"],
+            fg="#ffffff",
+            activebackground=THEME["allow_btn_hover"],
+            activeforeground="#ffffff",
+            relief=tk.FLAT,
+            padx=20,
+            pady=8,
+            cursor="hand2",
+            command=self._allow_current,
+        )
+        self.allow_btn.pack(side=tk.RIGHT, expand=True, fill=tk.X, padx=(8, 0))
+
+        # Queue Navigation bar (Pack just above actions frame)
+        self.nav_frame = tk.Frame(self.root, bg=THEME["bg_main"], padx=14, pady=4)
+        self.nav_frame.pack(fill=tk.X, side=tk.BOTTOM)
 
         self.prev_btn = tk.Button(
             self.nav_frame,
@@ -228,43 +246,26 @@ class ConfirmationModal:
         )
         self.timer_label.pack(side=tk.RIGHT)
 
-        # Action Buttons bar
-        self.actions_frame = tk.Frame(self.root, bg=THEME["bg_card"], padx=16, pady=12)
-        self.actions_frame.pack(fill=tk.X, side=tk.BOTTOM)
+        # Text area for formatted JSON parameters (Expands in remaining space)
+        text_frame = tk.Frame(self.root, bg=THEME["border"], padx=1, pady=1)
+        text_frame.pack(fill=tk.BOTH, expand=True, padx=14, pady=4)
 
-        # Block Button
-        self.block_btn = tk.Button(
-            self.actions_frame,
-            text="✕  BLOCK REQUEST",
-            font=(THEME["font_family"], 11, "bold"),
-            bg=THEME["block_btn"],
-            fg="#ffffff",
-            activebackground=THEME["block_btn_hover"],
-            activeforeground="#ffffff",
+        self.param_text = tk.Text(
+            text_frame,
+            height=6,
+            font=(THEME["font_mono"], 10),
+            bg=THEME["bg_input"],
+            fg=THEME["text_primary"],
+            insertbackground=THEME["text_primary"],
             relief=tk.FLAT,
-            padx=20,
+            padx=10,
             pady=8,
-            cursor="hand2",
-            command=self._block_current,
+            wrap=tk.WORD,
         )
-        self.block_btn.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(0, 8))
-
-        # Allow Button
-        self.allow_btn = tk.Button(
-            self.actions_frame,
-            text="✓  ALLOW REQUEST",
-            font=(THEME["font_family"], 11, "bold"),
-            bg=THEME["allow_btn"],
-            fg="#ffffff",
-            activebackground=THEME["allow_btn_hover"],
-            activeforeground="#ffffff",
-            relief=tk.FLAT,
-            padx=20,
-            pady=8,
-            cursor="hand2",
-            command=self._allow_current,
-        )
-        self.allow_btn.pack(side=tk.RIGHT, expand=True, fill=tk.X, padx=(8, 0))
+        scrollbar = tk.Scrollbar(text_frame, command=self.param_text.yview)
+        self.param_text.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.param_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
     def add_request(self, request: MCPRequest):
         """Add a new incoming request to the queue and refresh UI."""

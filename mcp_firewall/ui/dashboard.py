@@ -16,6 +16,7 @@ class MonitoringDashboard:
     def __init__(self, root: Optional[tk.Tk] = None):
         self.root = root or tk.Tk()
         self.history: List[MCPRequest] = []
+        self._item_map = {}
         self._setup_window()
         self._build_ui()
 
@@ -125,7 +126,27 @@ class MonitoringDashboard:
         if len(summary) > 60:
             summary = summary[:57] + "..."
 
-        self.tree.insert("", 0, values=(timestr, client, request.server_name, request.tool_name, status, summary))
+        item_id = self.tree.insert("", 0, values=(timestr, client, request.server_name, request.tool_name, status, summary))
+        self._item_map[request.request_id] = item_id
+
+        total = len(self.history)
+        allowed = sum(1 for r in self.history if r.status == RequestStatus.ALLOWED)
+        blocked = sum(1 for r in self.history if r.status in (RequestStatus.BLOCKED, RequestStatus.TIMEOUT))
+        self.update_metrics(total, allowed, blocked)
+
+    def update_decision(self, request_id: str, status: RequestStatus):
+        for r in self.history:
+            if r.request_id == request_id:
+                r.status = status
+                break
+
+        item_id = self._item_map.get(request_id)
+        if item_id and self.tree.exists(item_id):
+            current_vals = list(self.tree.item(item_id, "values"))
+            if len(current_vals) >= 6:
+                status_str = status.value if hasattr(status, "value") else str(status)
+                current_vals[4] = status_str
+                self.tree.item(item_id, values=current_vals)
 
         total = len(self.history)
         allowed = sum(1 for r in self.history if r.status == RequestStatus.ALLOWED)

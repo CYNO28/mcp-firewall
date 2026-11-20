@@ -1,10 +1,9 @@
 """Stdio Interceptor Wrapper for Claude Desktop MCP servers."""
 
-import os
-import sys
-import subprocess
-import threading
 import logging
+import subprocess
+import sys
+import threading
 from typing import List
 
 from mcp_firewall.config import DEFAULT_REQUEST_TIMEOUT

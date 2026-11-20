@@ -19,8 +19,13 @@ class PendingItem:
 class ApprovalManager:
     """Thread-safe manager for coordinating approvals between interceptors and UI."""
 
-    def __init__(self, on_request_queued: Optional[Callable[[MCPRequest], None]] = None):
+    def __init__(
+        self,
+        on_request_queued: Optional[Callable[[MCPRequest], None]] = None,
+        on_decision_rendered: Optional[Callable[[ApprovalDecision], None]] = None,
+    ):
         self.on_request_queued = on_request_queued
+        self.on_decision_rendered = on_decision_rendered
         self._lock = threading.Lock()
         self._pending: Dict[str, PendingItem] = {}
         self._history: List[MCPRequest] = []
@@ -28,6 +33,9 @@ class ApprovalManager:
 
     def set_queue_callback(self, callback: Callable[[MCPRequest], None]):
         self.on_request_queued = callback
+
+    def set_decision_callback(self, callback: Callable[[ApprovalDecision], None]):
+        self.on_decision_rendered = callback
 
     def _load_recent_history(self):
         """Read recent history from audit log if available."""
@@ -82,6 +90,8 @@ class ApprovalManager:
             )
             request.status = RequestStatus.TIMEOUT
             request.decision_reason = decision.reason
+            if self.on_decision_rendered:
+                self.on_decision_rendered(decision)
         else:
             decision = item.decision
             request.status = decision.status
@@ -100,6 +110,8 @@ class ApprovalManager:
             if item:
                 item.decision = decision
                 item.event.set()
+        if self.on_decision_rendered:
+            self.on_decision_rendered(decision)
 
     def get_stats(self) -> Dict[str, int]:
         with self._lock:

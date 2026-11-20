@@ -27,11 +27,6 @@ classifiers = [
 
 dependencies = []
 
-[project.optional-dependencies]
-dev = [
-    "pytest>=7.0.0",
-]
-
 [project.scripts]
 mcp-firewall = "mcp_firewall.cli:main"
 
