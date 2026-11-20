@@ -33,40 +33,51 @@ A real-time monitoring, protocol interception, and user authorization firewall f
 
 ## 🖥️ How to Start and Run the App
 
-### Quick Start (Easiest)
+You can start the firewall and the **Live Activity & Security Dashboard** in any of the following ways:
 
-First, activate the virtual environment:
-- **Windows (PowerShell)**: `.\.venv\Scripts\Activate.ps1`
-- **macOS / Linux**: `source .venv/bin/activate`
-
-Then start the daemon and **Live Activity Dashboard**:
-```bash
-python start.py
-```
-
-To check firewall status:
-```bash
-python start.py status
-```
-
-> **Tip for Windows**: You can also run directly without activating the venv:
-> ```powershell
-> .\run
-> .\run status
-> ```
+### Method 1: Using the Shortcut (Easiest — No Activation Needed)
+Runs directly using the project's virtual environment:
+- **Windows (PowerShell/CMD)**:
+  ```powershell
+  .\run           # Starts Daemon + Live Dashboard
+  .\run status    # Checks daemon & Claude configuration
+  ```
 
 ---
 
-### Alternative: CLI Commands
+### Method 2: Standard (Activate Virtual Environment First)
+1. **Activate venv**:
+   - Windows (PowerShell): `.\.venv\Scripts\Activate.ps1`
+   - macOS / Linux: `source .venv/bin/activate`
 
-You can also run commands directly via the CLI:
+2. **Run**:
+   ```bash
+   python start.py         # Starts Daemon + Live Dashboard
+   python start.py status  # Checks status
+   ```
 
+---
+
+### Method 3: Direct Virtual Environment Path
+If you prefer not to activate the venv and want to invoke Python directly:
+- **Windows**:
+  ```powershell
+  .\.venv\Scripts\python.exe start.py
+  .\.venv\Scripts\python.exe start.py status
+  ```
+- **macOS / Linux**:
+  ```bash
+  ./.venv/bin/python start.py
+  ./.venv/bin/python start.py status
+  ```
+
+---
+
+### Method 4: Standard CLI Commands
 ```bash
-# Start the daemon and dashboard
-mcp-firewall start
-
-# Check overall status
-mcp-firewall status
+mcp-firewall start     # Starts Daemon + Live Dashboard
+mcp-firewall status    # Checks status
+mcp-firewall daemon    # Starts headless daemon only
 ```
 
 ---
