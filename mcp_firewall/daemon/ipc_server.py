@@ -1,6 +1,7 @@
 import json
 import logging
 import socket
+import sys
 import threading
 from typing import Optional
 
@@ -27,7 +28,8 @@ class IPCServer:
 
     def start(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if sys.platform != "win32":
+            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.bind((self.host, self.port))
         self.sock.listen(50)
         self._running = True
@@ -87,6 +89,11 @@ class IPCServer:
                 stats = self.approval_manager.get_stats()
                 resp = {"status": "SUCCESS", "stats": stats}
                 client_sock.sendall((json.dumps(resp) + "\n").encode("utf-8"))
+
+            elif cmd == "SHUTDOWN":
+                resp = {"status": "SHUTTING_DOWN"}
+                client_sock.sendall((json.dumps(resp) + "\n").encode("utf-8"))
+                self.stop()
 
             else:
                 resp = {"status": "ERROR", "message": f"Unknown command: {cmd}"}

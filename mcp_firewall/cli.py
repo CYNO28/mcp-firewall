@@ -30,6 +30,15 @@ def run_daemon_command(args):
     """Run the MCP Firewall central daemon with GUI confirmation modal."""
     logger.info("Starting MCP Firewall Central Daemon...")
 
+    import socket
+    import time
+    try:
+        with socket.create_connection((args.host, args.port), timeout=0.5) as s:
+            s.sendall(b'{"cmd": "SHUTDOWN"}\n')
+            time.sleep(0.3)
+    except Exception:
+        pass
+
     root = tk.Tk()
     manager = ApprovalManager()
 
