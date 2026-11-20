@@ -1,10 +1,32 @@
-# 🛡️ MCP Firewall
+# MCP Firewall
 
-A real-time monitoring, protocol interception, and user authorization firewall for Model Context Protocol (MCP) communication initiated by Claude Desktop and Claude Web.
+A lightweight, real-time security proxy and approval firewall for Anthropic's Model Context Protocol (MCP). It intercepts incoming tool calls from Claude Desktop and Claude Web, pauses execution, and prompts you with a confirmation modal before any tool action is allowed to run.
 
 ---
 
-## 🚀 Installation & Setup
+## Architecture Overview
+
+```
+Claude Client (Desktop / Web)
+       │
+       ▼
+MCP Firewall Interceptor (stdio wrapper / SSE reverse proxy)
+       │
+       ├──► Local IPC (127.0.0.1:9876) ──► Central Daemon & Approval Modal
+       │                                         │
+       │                                         ▼
+       │                                  Live Dashboard
+       ▼
+MCP Server (Underlying tools: filesystem, database, shell, etc.)
+```
+
+- **Zero-trust fail-closed design**: Tool calls are held in memory until you explicitly click **Allow**. If unanswered after 60 seconds, requests automatically block.
+- **Bi-directional interception**: Handles stdio-based MCP servers (Claude Desktop) and HTTP/SSE servers (Claude Web).
+- **Live GUI Dashboard**: Tracks all requests, arguments, execution status, and decisions in real time.
+
+---
+
+## Installation & Setup
 
 1. **Clone the repository**:
    ```bash
@@ -12,92 +34,72 @@ A real-time monitoring, protocol interception, and user authorization firewall f
    cd mcp-firewall
    ```
 
-2. **Activate the virtual environment**:
-   - **Windows (PowerShell)**:
+2. **Set up the virtual environment**:
+   - **Windows**:
      ```powershell
+     python -m venv .venv
      .\.venv\Scripts\Activate.ps1
      ```
    - **macOS / Linux**:
      ```bash
+     python3 -m venv .venv
      source .venv/bin/activate
      ```
 
-3. **Install in editable mode**:
+3. **Install dependencies**:
    ```bash
    pip install -e .
    ```
 
-*(Note: If running without activating the venv, prefix commands with `.\.venv\Scripts\mcp-firewall` or `python -m mcp_firewall`)*
-
 ---
 
-## 🖥️ How to Start and Run the App
+## Running the Firewall
 
-You can start the firewall and the **Live Activity & Security Dashboard** in any of the following ways:
+Choose whichever method fits your setup best:
 
-### Method 1: Using the Shortcut (Easiest — No Activation Needed)
-Runs directly using the project's virtual environment:
-- **Windows (PowerShell/CMD)**:
-  ```powershell
-  .\run           # Starts Daemon + Live Dashboard
-  .\run status    # Checks daemon & Claude configuration
-  ```
+### Option A: Direct Shortcut (Easiest for Windows)
+You do not need to activate the virtual environment manually. The script automatically locates the project's Python environment:
+```powershell
+.\run           # Starts the Daemon + Live Security Dashboard
+.\run status    # Checks daemon and Claude config status
+```
 
----
-
-### Method 2: Standard (Activate Virtual Environment First)
-1. **Activate venv**:
-   - Windows (PowerShell): `.\.venv\Scripts\Activate.ps1`
-   - macOS / Linux: `source .venv/bin/activate`
-
-2. **Run**:
-   ```bash
-   python start.py         # Starts Daemon + Live Dashboard
-   python start.py status  # Checks status
-   ```
-
----
-
-### Method 3: Direct Virtual Environment Path
-If you prefer not to activate the venv and want to invoke Python directly:
-- **Windows**:
-  ```powershell
-  .\.venv\Scripts\python.exe start.py
-  .\.venv\Scripts\python.exe start.py status
-  ```
-- **macOS / Linux**:
-  ```bash
-  ./.venv/bin/python start.py
-  ./.venv/bin/python start.py status
-  ```
-
----
-
-### Method 4: Standard CLI Commands
+### Option B: Standard Python Command
+If your virtual environment is already activated (`(.venv)` in prompt):
 ```bash
-mcp-firewall start     # Starts Daemon + Live Dashboard
-mcp-firewall status    # Checks status
-mcp-firewall daemon    # Starts headless daemon only
+python start.py         # Starts Daemon + Live Security Dashboard
+python start.py status  # Checks status
+```
+
+### Option C: Using the Installed CLI
+```bash
+mcp-firewall start      # Starts Daemon + Live Security Dashboard
+mcp-firewall status     # Checks status
+mcp-firewall daemon     # Starts daemon without the dashboard GUI
 ```
 
 ---
 
-### 2. Protect Claude Desktop
+## Protecting Claude Desktop
 
-#### Automatic Setup (Recommended)
-Inspect your current Claude Desktop configuration:
+### Automatic Setup (Recommended)
+Inspect your existing Claude Desktop configuration:
 ```bash
 mcp-firewall claude-status
 ```
 
-Automatically wrap all configured servers in `claude_desktop_config.json` with MCP Firewall:
+Wrap all configured servers with MCP Firewall in one command:
 ```bash
 mcp-firewall claude-protect
 ```
-*(To restore original settings at any time: `mcp-firewall claude-unprotect`)*
+*(To remove the firewall and restore original settings: `mcp-firewall claude-unprotect`)*
 
-#### Manual Setup
-Prepend `python -m mcp_firewall wrap --server-name <NAME> --` to any MCP server in your `claude_desktop_config.json`:
+### Manual Configuration
+You can also manually edit your `claude_desktop_config.json`:
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+
+Add `mcp_firewall wrap --server-name <NAME> --` to your server definition:
 ```json
 {
   "mcpServers": {
@@ -116,9 +118,9 @@ Prepend `python -m mcp_firewall wrap --server-name <NAME> --` to any MCP server 
 
 ---
 
-### 3. Protect Claude Web (HTTP / SSE)
+## Protecting Claude Web (HTTP / SSE)
 
-Start the reverse proxy pointing to your upstream MCP server:
+For remote web clients, run the reverse proxy pointing to your upstream server:
 ```bash
 mcp-firewall proxy --port 8765 --upstream http://127.0.0.1:3000 --server-name web-tools
 ```
@@ -128,33 +130,36 @@ In Claude Web, configure your MCP server URL to:
 http://127.0.0.1:8765/sse
 ```
 
-Whenever Claude Web triggers a tool invocation, MCP Firewall intercepts the request and presents the confirmation popup.
+When Claude Web triggers an MCP tool call, it routes through port 8765 where the firewall holds it for user approval before proxying it to port 3000.
 
 ---
 
-### 4. Running with the Included Sample Server (Optional)
+## Testing with the Included Sample Server
 
-To test the firewall with a standalone server containing filesystem and database tools:
+The repository includes a ready-to-use sample MCP server (`mcp_server.py`) exposing 9 filesystem, shell, and database tools (`create_file`, `read_file`, `delete_file`, `list_directory`, `execute_shell_command`, `delete_database`, etc.).
 
+To run it wrapped by the firewall:
 ```bash
 mcp-firewall wrap --server-name secure-tools -- python mcp_server.py
 ```
 
 ---
 
-## 📖 CLI Commands Reference
+## CLI Reference
 
-| Command | Usage | Description |
+| Command | Syntax | Description |
 | :--- | :--- | :--- |
-| `mcp-firewall daemon` | `mcp-firewall daemon [--port 9876] [--dashboard]` | Starts the central authorization daemon & GUI modal |
-| `mcp-firewall wrap` | `mcp-firewall wrap --server-name <NAME> -- <CMD...>` | Wraps target MCP server stdio streams (Claude Desktop) |
-| `mcp-firewall proxy` | `mcp-firewall proxy --port 8765 --upstream <URL>` | Runs the HTTP/SSE reverse proxy (Claude Web) |
-| `mcp-firewall claude-status` | `mcp-firewall claude-status` | Checks Claude Desktop MCP configuration |
-| `mcp-firewall claude-protect` | `mcp-firewall claude-protect [--server <NAME>]` | Automatically wraps servers with MCP Firewall |
-| `mcp-firewall claude-unprotect` | `mcp-firewall claude-unprotect [--server <NAME>]` | Restores original Claude Desktop configuration |
+| `start` | `mcp-firewall start` | Starts daemon & live dashboard together |
+| `status` | `mcp-firewall status` | Shows daemon health and Claude config |
+| `daemon` | `mcp-firewall daemon [--dashboard]` | Runs the central IPC daemon and approval popup |
+| `wrap` | `mcp-firewall wrap --server-name <N> -- <CMD>` | Wraps target MCP stdio process |
+| `proxy` | `mcp-firewall proxy --port <P> --upstream <U>` | Runs HTTP/SSE reverse proxy |
+| `claude-status` | `mcp-firewall claude-status` | Checks Claude Desktop config |
+| `claude-protect` | `mcp-firewall claude-protect` | Wraps all servers in Claude Desktop config |
+| `claude-unprotect` | `mcp-firewall claude-unprotect` | Unwraps servers and restores backup |
 
 ---
 
-## 📄 License
+## License
 
 MIT License.
