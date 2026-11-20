@@ -35,17 +35,25 @@ A real-time monitoring, protocol interception, and user authorization firewall f
 
 ### Quick Start (Easiest)
 
-To start the central authorization daemon and the **Live Activity Dashboard**:
+First, activate the virtual environment:
+- **Windows (PowerShell)**: `.\.venv\Scripts\Activate.ps1`
+- **macOS / Linux**: `source .venv/bin/activate`
 
+Then start the daemon and **Live Activity Dashboard**:
 ```bash
 python start.py
 ```
 
-To check the firewall daemon and Claude Desktop configuration status:
-
+To check firewall status:
 ```bash
 python start.py status
 ```
+
+> **Tip for Windows**: You can also run directly without activating the venv:
+> ```powershell
+> .\run
+> .\run status
+> ```
 
 ---
 
